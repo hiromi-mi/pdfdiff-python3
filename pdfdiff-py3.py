@@ -1,9 +1,12 @@
 #!/usr/bin/python
 # This Python file uses the following encoding: latin-1
 """
-pdfdiff.py : inspect the difference between two PDF files.
+pdfdiff-py3.py : inspect the difference between two PDF files.
 
-Copyright (C) 2007-2013 Cas Cremers
+*UNOFFICAL* port to Python 3.7 of pdfdiff (https://github.com/cascremers/pdfdiff)
+
+Copyright (C) 2007-2013 Cas Cremers (Original pdfdiff)
+              2019      hiromi-mi   (Porting to Python 3.7)
 
 This program is free software; you can redistribute it and/or
 modify it under the terms of the GNU General Public License
@@ -26,7 +29,7 @@ Module dependencies
 """
 import sys
 import string
-import commands
+import subprocess
 import os.path
 import tempfile
 
@@ -108,7 +111,7 @@ def get_viewer_list():
     """
     global diffViewers
 
-    return map(lambda s:(s.split())[0], diffViewers)
+    return [(s.split())[0] for s in diffViewers]
 
 
 def is_command_available(prg):
@@ -117,7 +120,7 @@ def is_command_available(prg):
     it will find "kdiff3 -a"
     """
     cmd = "which %s" % ((prg.split())[0])
-    (status,out) = commands.getstatusoutput(cmd)
+    (status,out) = subprocess.getstatusoutput(cmd)
     return (status == 0)
 
 
@@ -141,11 +144,11 @@ def apply_command_temp(prg,options,notfound,filename,prefix="",suffix=""):
     fout = tempfile.NamedTemporaryFile(suffix=suffix,prefix=prefix)
 
     if not is_command_available(prg):
-        print "Error: %s" % (notfound)
+        print("Error: %s" % (notfound))
         sys.exit(1)
 
     cmd = "%s %s \"%s\" \"%s\"" % (prg,options,filename,fout.name)
-    output = commands.getoutput(cmd)
+    output = subprocess.getoutput(cmd)
     return (fout,output)
 
 
@@ -166,7 +169,7 @@ def get_filetype(filename):
         # On systems where we have 'file', this is a nice
         # and solid solution.
         cmd = "file --brief \"%s\"" % filename
-        output = commands.getoutput(cmd)
+        output = subprocess.getoutput(cmd)
         type = (output.split())[0].lower()
     else:
         # If we don't have 'file', we just take an educated
@@ -239,7 +242,7 @@ def is_sentence_done(sentence):
     return False
 
 
-def flush_sentence(fout,forceNewLine = False):
+def flush_sentence(sentence_buf, fout,forceNewLine = False):
     """
     Flush the sentence buffer.
     """
@@ -247,12 +250,14 @@ def flush_sentence(fout,forceNewLine = False):
     global lastWordLength
 
     lastWordLength = 0
-    l = sentenceBuf.lstrip()
+    l = sentence_buf.lstrip()
     l = fix_ff_problem(l)
-    fout.write(l)
-    if forceNewLine or (sentenceBuf != ""):
-        fout.write("\n")
-    sentenceBuf = ""
+    # TODO: Support other than UTF-8
+    fout.write(bytes(l, 'utf-8'))
+    if forceNewLine or (sentence_buf != ""):
+        fout.write(b"\n")
+    sentence_buf = ""
+    return sentence_buf
 
 
 def normalize_text(fin,fout):
@@ -263,7 +268,7 @@ def normalize_text(fin,fout):
     global sentenceBuf
     global lastWordLength
 
-    sentenceBuf = ""    # stores unfinished sentences
+    sentence_buf = ""    # stores unfinished sentences
     wordLength = 0
     lastWordLength = 0
     skipEnds = False
@@ -273,6 +278,7 @@ def normalize_text(fin,fout):
     for l in fin.readlines():
         # Cut of spacing from both ends
         ls = l.strip()
+        ls = str(ls, encoding="UTF-8")
         
         # Empty line or not?
         if ls == "":
@@ -282,20 +288,20 @@ def normalize_text(fin,fout):
             # Any further additional empty lines have no effect,
             # which is enforced by skipEnds.
             if not skipEnds:
-                flush_sentence(fout)
-                flush_sentence(fout,True)
+                sentence_buf = flush_sentence(sentence_buf, fout)
+                sentence_buf = flush_sentence(sentence_buf, fout,True)
                 skipEnds = True
         else:
             # The file line is not empty, so this is some sort of
             # paragraph
             skipEnds = False
-            if sentenceBuf != "":
-                if not sentenceBuf[-1] in string.whitespace:
-                    sentenceBuf += " "
+            if sentence_buf != "":
+                if not sentence_buf[-1] in string.whitespace:
+                    sentence_buf += " "
 
             for c in ls:
                 # Append the character to the current buffer.
-                sentenceBuf += c
+                sentence_buf += c
 
                 # Some admin to know how long the last word was.
                 if c in string.ascii_letters:
@@ -304,7 +310,7 @@ def normalize_text(fin,fout):
                 else:
                     wordLength = 0
 
-                if is_sentence_done(sentenceBuf):
+                if is_sentence_done(sentence_buf):
                     # If the last word is only a single character,
                     # it's assumed that the punctuation does not
                     # refer to a sentence end.
@@ -312,9 +318,10 @@ def normalize_text(fin,fout):
                         # Sentence has ended, so flush it.
                         # We should skip any spacing directly after
                         # the sentence end mark.
-                        flush_sentence(fout)
+                        sentence_buf = flush_sentence(sentence_buf, fout)
 
-    flush_sentence(fout)
+    # TODO : Unneeded?
+    sentence_buf = flush_sentence(sentence_buf, fout)
     fout.flush()
 
 
@@ -364,7 +371,7 @@ def normalize_anything(filename,fout=sys.stdout):
         elif filetype == "ps":
             fhandle = ps_to_pdf(filename,prefix=prefix)
         else:
-            print "Error: Don't know how to handle file type '%s'" % (filetype)
+            print("Error: Don't know how to handle file type '%s'" % (filetype))
             sys.exit(1)
         if temphandle:
             temphandle.close()
@@ -411,7 +418,7 @@ def view_diff(fnleft,fnright):
         # Attempt to use the prefix as a program (overrides defaults)
         viewers = [diffViewerPrefix]
         # Also add filtered known ones
-        viewers += filter(lambda s:s.startswith(diffViewerPrefix),diffViewers)
+        viewers += [s for s in diffViewers if s.startswith(diffViewerPrefix)]
     # Add known ones
     viewers += diffViewers
 
@@ -419,14 +426,14 @@ def view_diff(fnleft,fnright):
 
     if prg == None:
         estr = "Error: Could not find a suitable diff viewer from the list %s" % (diffViewers)
-        print estr
+        print(estr)
         sys.exit(1)
 
     cmd = "%s \"%s\" \"%s\"" % (prg,fleft.name,fright.name)
-    out = commands.getoutput(cmd)
+    out = subprocess.getoutput(cmd)
     # Also print the result (e.g. for programs like diff that send
     # output to stdout)
-    print out
+    print(out)
 
     fleft.close()
     fright.close()
@@ -456,7 +463,7 @@ Switches:
         %s
        that starts with <prefix>.
 """ % (progVersion, ", ".join(get_viewer_list()))
-    print helpstr.replace("PRG",progName)
+    print(helpstr.replace("PRG",progName))
 
 
 #-------------------------------------------------------------------------
@@ -488,12 +495,12 @@ if __name__ == "__main__":
         elif optcmd in ["-d","--diffviewer"]:
             # Selecting diff viewer prefix
             if len(args) < 2:
-                print "Error: Diff viewer preference requires a string prefix argument"
+                print("Error: Diff viewer preference requires a string prefix argument")
                 sys.exit(1)
             diffViewerPrefix = args[1]
-            if len(filter(lambda s:s.startswith(diffViewerPrefix),get_viewer_list())) == 0:
+            if len([s for s in get_viewer_list() if s.startswith(diffViewerPrefix)]) == 0:
                 if not is_command_available(diffViewerPrefix):
-                    print "Error: program '%s' not found, and no viewer from the list %s starts with '%s'" % (diffViewerPrefix,get_viewer_list(),diffViewerPrefix)
+                    print("Error: program '%s' not found, and no viewer from the list %s starts with '%s'" % (diffViewerPrefix,get_viewer_list(),diffViewerPrefix))
                     sys.exit(1)
             args = args[2:]
 
@@ -506,7 +513,7 @@ if __name__ == "__main__":
                 view_diff(args[0],args[1])
                 sys.exit(0)
             else:
-                print "Error: I don't know what to do with more than two files"
+                print("Error: I don't know what to do with more than two files")
                 sys.exit(1)
 
 # vim: set ts=4 sw=4 et fileencoding=utf-8 list lcs=tab\:>-:
