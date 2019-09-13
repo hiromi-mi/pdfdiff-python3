@@ -61,8 +61,8 @@ pdftotextProgram = "pdftotext"
 pdftotextOptions = "-nopgbrk"
 
 # Myname
-progName = "pdfdiff.py"
-progVersion = "0.92"
+progName = "pdfdiff-py3.py"
+progVersion = "0.93"
 
 # Define what a long sentence is.
 # When a sentence is longer than this, any punctuations count as sentence
@@ -449,6 +449,7 @@ def display_help():
     helpstr = """\
 PRG version %s
 Copyright 2007 Cas Cremers
+          2019 hiromi-mi (Porting to Python 3.7)
 
 Usage: PRG [switches] <file1> [<file2>]
 
