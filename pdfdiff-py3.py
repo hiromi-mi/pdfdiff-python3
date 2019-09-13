@@ -1,4 +1,3 @@
-#!/usr/bin/python
 # This Python file uses the following encoding: latin-1
 """
 pdfdiff-py3.py : inspect the difference between two PDF files.
