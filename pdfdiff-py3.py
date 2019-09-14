@@ -116,7 +116,7 @@ def is_command_available(prg):
     it will find "kdiff3 -a"
     """
     cmd = "which %s" % ((prg.split())[0])
-    status, out = subprocess.getstatusoutput(cmd)
+    status, _ = subprocess.getstatusoutput(cmd)
     return status == 0
 
 
@@ -152,8 +152,8 @@ def make_prefix(fname):
     """
     Turn file name into a prefix we can use.
     """
-    (head, tail) = os.path.split(fname)
-    (root, ext) = os.path.splitext(tail)
+    _, tail = os.path.split(fname)
+    root, _ = os.path.splitext(tail)
     return root + "_"
 
 
@@ -166,23 +166,23 @@ def get_filetype(filename):
         # and solid solution.
         cmd = "file --brief \"%s\"" % filename
         output = subprocess.getoutput(cmd)
-        type = (output.split())[0].lower()
+        filetype = (output.split())[0].lower()
     else:
         # If we don't have 'file', we just take an educated
         # guess based on the filename extension.
-        (head, tail) = os.path.split(filename)
-        (root, ext) = os.path.splitext(tail)
-        type = ext.lower()
-        if type.startswith("."):
-            type = type[1:]
+        _, tail = os.path.split(filename)
+        _, ext = os.path.splitext(tail)
+        filetype = ext.lower()
+        if filetype.startswith("."):
+            filetype = filetype[1:]
 
     # Case distinctions for possible results.
     #
     # Be aware we might be matching either the output from 'file' or the
     # extension!
-    if type in ['pdf', 'fdf']:
+    if filetype in ['pdf', 'fdf']:
         return "pdf"
-    elif type in ['postscript', 'ps']:
+    elif filetype in ['postscript', 'ps']:
         return "ps"
     else:
         # Default assumption: text
@@ -206,20 +206,20 @@ def fix_ff_problem(sentence):
 # 2. Text normalization
 #-------------------------------------------------------------------------
 
-def is_sentence_end(c):
+def is_sentence_end(char):
     """
     The following characters are considered to be sentence endings for our
     normalization.
     """
-    return c in ".!?"
+    return char in ".!?"
 
 
-def is_sentence_break(c):
+def is_sentence_break(char):
     """
     The following characters are considered to be sentence breaks for our
     normalization of long sentences.
     """
-    return c in string.punctuation
+    return char in string.punctuation
 
 
 def is_sentence_done(sentence):
@@ -228,7 +228,7 @@ def is_sentence_done(sentence):
     """
     global longSentenceLength
 
-    if len(sentence) > 0:
+    if sentence: # sentence is not empty
         if is_sentence_end(sentence[-1]):
             return True
         else:
@@ -238,7 +238,7 @@ def is_sentence_done(sentence):
     return False
 
 
-def flush_sentence(sentence_buf, fout, forceNewLine=False):
+def flush_sentence(sentence_buf, fout, force_new_line=False):
     """
     Flush the sentence buffer.
     """
@@ -250,7 +250,7 @@ def flush_sentence(sentence_buf, fout, forceNewLine=False):
     l = fix_ff_problem(l)
     # TODO: Support other than UTF-8
     fout.write(bytes(l, 'utf-8'))
-    if forceNewLine or (sentence_buf != ""):
+    if force_new_line or (sentence_buf != ""):
         fout.write(b"\n")
     sentence_buf = ""
     return sentence_buf
@@ -331,7 +331,7 @@ def ps_to_pdf(filename, prefix=""):
     """
     prg = "ps2pdf"
     notfound = "Could not find 'ps2pdf', which is needed for ps to pdf conversion."
-    (fout, output) = apply_command_temp(prg, "", notfound, filename, prefix, ".pdf")
+    (fout, _) = apply_command_temp(prg, "", notfound, filename, prefix, ".pdf")
     return fout
 
 
@@ -342,12 +342,12 @@ def pdf_to_text(filename, prefix=""):
     global pdftotextProgram, pdftotextOptions
 
     notfound = """\
-Could not find '{}', which is needed for pdf to text conversion.
-{} is part of the 'xPdf' suite of programs, obtainable at:
+Could not find '{program}', which is needed for pdf to text conversion.
+{program} is part of the 'xPdf' suite of programs, obtainable at:
   http://www.foolabs.com/xpdf/
-""".format(pdftotextProgram, pdftotextProgram)
-    (fout, output) = apply_command_temp(
-            pdftotextProgram, pdftotextOptions, notfound, filename, prefix, ".txt")
+""".format(program=pdftotextProgram)
+    (fout, _) = apply_command_temp(
+        pdftotextProgram, pdftotextOptions, notfound, filename, prefix, ".txt")
     return fout
 
 
@@ -407,7 +407,7 @@ def view_diff(fnleft, fnright):
     global diffViewers
     global diffViewerPrefix
 
-    fleft  = normalize_anything_tempfile(fnleft)
+    fleft = normalize_anything_tempfile(fnleft)
     fright = normalize_anything_tempfile(fnright)
 
     viewers = []
@@ -421,7 +421,7 @@ def view_diff(fnleft, fnright):
 
     prg = find_first(viewers)
 
-    if prg == None:
+    if prg is None:
         estr = "Error: Could not find a suitable diff viewer from the list %s" % (diffViewers)
         print(estr)
         sys.exit(1)
@@ -478,12 +478,12 @@ if __name__ == "__main__":
     diffViewerPrefix = ""
 
     # No arguments, show help
-    if len(args) == 0:
+    if not args: # empty
         display_help()
         sys.exit(0)
 
     # Check for special commands
-    while len(args) > 0:
+    while args:
         optcmd = args[0]
         if optcmd in ["-?", "-h", "--help"]:
             # Help
@@ -498,7 +498,7 @@ if __name__ == "__main__":
             diffViewerPrefix = args[1]
             if len([s for s in get_viewer_list() if s.startswith(diffViewerPrefix)]) == 0:
                 if not is_command_available(diffViewerPrefix):
-                    print("Error: program '%s' not found, and no viewer from the list %s starts with '%s'" % (diffViewerPrefix, get_viewer_list(), diffViewerPrefix))
+                    print("Error: program '%s' not found, and no viewer from the list %s starts with '%s'".format(diffViewerPrefix, get_viewer_list(), diffViewerPrefix))
                     sys.exit(1)
             args = args[2:]
 
