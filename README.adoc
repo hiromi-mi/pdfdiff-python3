@@ -1,7 +1,7 @@
 pdfdiff-python3: Unoffical Port of pdfdiff to Python 3.7
 ========================================================
 
-This is *UNOFFICAL* port of https://github.com/cascremers/pdfdiff[pdfdiff] to Python 3.7.
+This is an *UNOFFICAL* port of https://github.com/cascremers/pdfdiff[pdfdiff] to Python 3.7.
 
 When you find issues about pdfdiff-python3, feel free to report to https://github.com/hiromi-mi/pdfdiff-python3[pdfdiff-python3 issues], but please refrain from reporting to the original project.
 
